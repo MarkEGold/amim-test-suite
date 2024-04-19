@@ -27,10 +27,12 @@ def get_pathways(condition):
         return ["hsa04621", "hsa04060", "hsa04630", "hsa05321", "hsa04140"]
 
 
-# new_files = [x for x in all_results if "CUSTOM" in x]
-new_files = [x for x in all_results if "DIAMOND" in x]
+# METHOD = "CUSTOM"
+METHOD = "DIAMOND"
+new_files = [x for x in all_results if METHOD in x]
+# new_files = [x for x in all_results if "DIAMOND" in x]
 
-
+print(new_files)
 for i in range(len(new_files)):
     if new_files[i].endswith(".csv"):
         if i == 0:
@@ -49,6 +51,7 @@ results = results.replace(
         "GSE3790": "HD",
     }
 )
+print(results)
 
 all_genes = list(results.result_genes)
 genes = []
@@ -62,7 +65,11 @@ for i in range(len(all_genes)):
 genes = list(set(flatten(genes)))
 mg = mygene.MyGeneInfo()
 out = mg.querymany(
-    genes, scopes="entrezgene", fields="symbol", species="human", verbose=False
+    genes,
+    scopes="entrezgene",
+    fields="symbol",
+    species="human",
+    verbose=False,
 )
 mapping = dict()
 for line in out:
@@ -79,9 +86,11 @@ for i in results.index:
         gs = str(results.result_genes[i])
         gs = gs.split(",")
         gs = [mapping[x] for x in gs]
+        # breakpoint()
 
         res = False
         while res == False:
+            # if True:
             try:
                 enr = gseapy.enrichr(
                     gene_list=gs,
@@ -90,9 +99,16 @@ for i in results.index:
                     outdir="out",
                 )
                 res = True
-            except:
-                print("sleeping")
-                time.sleep(1)
+            except Exception as e:
+                print(e)
+                # print(gs)
+                # breakpoint()
+
+                # print("sleeping")
+                # time.sleep(1)
+                # kegg_pval.append(np.nan)
+        # if not res:
+        # continue
         full_results = enr.results
         terms = list(full_results.Term)
         terms = [x.split(" ")[-1] for x in terms]
@@ -128,6 +144,7 @@ overlaps = []
 for i in results.index:
     try:
         gs = results.result_genes[i]
+
         condition = results["condition_name"][i]
         dis = disgenet[disgenet.disease_id == dis_ids[condition]]
         dis_genes = list(dis.gene)
@@ -142,7 +159,7 @@ for i in results.index:
 
 results["disgenet_overlap"] = overlaps
 
-
+print(results)
 fig, axes = plt.subplots(3, 1)
 fig.subplots_adjust(hspace=0.8, wspace=0.4)
 kv = {
@@ -173,7 +190,7 @@ axes[2].set(xlabel="")
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("img/basic/all1.png")
+plt.savefig(f"img/basic/{METHOD}.png")
 # plt.savefig("img/basic/all.pdf")
 
 
