@@ -1,5 +1,6 @@
 import time
 from os import listdir
+from typing import List
 
 import gseapy
 import matplotlib.pyplot as plt
@@ -14,17 +15,18 @@ mypath = "results/"
 all_results = listdir(mypath)
 
 
-def get_pathways(condition):
+def get_pathways(condition: str) -> List[str]:
     if condition == "ALS":
         return ["hsa05014"]
-    elif condition == "LC":
+    if condition == "LC":
         return ["hsa05223"]
-    elif condition == "UC":
+    if condition == "UC":
         return ["hsa04060", "hsa04630", "hsa05321"]
-    elif condition == "HD":
+    if condition == "HD":
         return ["hsa05016"]
-    elif condition == "CD":
+    if condition == "CD":
         return ["hsa04621", "hsa04060", "hsa04630", "hsa05321", "hsa04140"]
+    return []
 
 
 # METHOD = "CUSTOM"
@@ -160,7 +162,8 @@ for i in results.index:
         dis_genes = [str(x) for x in dis_genes]
         gs = gs.split(",")
         oc = len(set(gs).intersection(set(dis_genes))) / min(
-            len(set(gs)), len(set(dis_genes))
+            len(set(gs)),
+            len(set(dis_genes)),
         )
         overlaps.append(oc)
     except:
@@ -184,16 +187,17 @@ axes[0].set(xlabel="")
 
 sns.boxplot(ax=axes[1], y="mean_mutual_information", **kv)
 axes[1].set_title(
-    r"$\bf{" + "b)" + "}$" + " Mean mutual information with the phenotype", loc="left"
+    r"$\bf{" + "b)" + "}$" + " Mean mutual information with the phenotype",
+    loc="left",
 )
-axes[1].legend_.remove()
+# axes[1].legend_.remove()
 
 
 sns.boxplot(ax=axes[2], y="disgenet_overlap", **kv)
 axes[2].set_title(
     r"$\bf{" + "c)" + "}$" + " Overlap with DisGeNET disease genes", loc="left"
 )
-axes[2].legend_.remove()
+# axes[2].legend_.remove()
 axes[2].set(xlabel="")
 
 
