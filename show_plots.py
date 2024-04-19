@@ -39,17 +39,26 @@ for i in range(len(new_files)):
             results = pd.read_csv(mypath + new_files[i])
         else:
             temp = pd.read_csv(mypath + new_files[i])
-            temp = temp.replace({"REWIRED": "EXPECTED_DEGREE"})
-            temp = temp.replace({"RDPN": "REWIRED"})
             results = pd.concat([results, temp], axis=0, ignore_index=True)
 results = results.replace(
     {
-        "GSE112680": "ALS",
-        "GSE30219": "LC",
-        "GSE75214": "UC",
-        "GSE75214_cd": "CD",
-        "GSE3790": "HD",
-    }
+        "network_generator_name": {
+            "REWIRED": "EXPECTED_DEGREE",
+            "RDPN": "REWIRED",
+        },
+    },
+)
+
+results = results.replace(
+    {
+        "condition_name": {
+            "GSE112680": "ALS",
+            "GSE30219": "LC",
+            "GSE75214": "UC",
+            "GSE75214_cd": "CD",
+            "GSE3790": "HD",
+        },
+    },
 )
 print(results)
 
