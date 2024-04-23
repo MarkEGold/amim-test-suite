@@ -1,15 +1,15 @@
-import time
 from os import listdir
 from typing import List
 
-import gseapy
 import matplotlib.pyplot as plt
 import mygene
-import numpy as np
 import pandas as pd
 import seaborn as sns
 
-flatten = lambda l: [item for sublist in l for item in sublist]
+
+def flatten(genes: List) -> List:
+    return [item for sublist in genes for item in sublist]
+
 
 mypath = "results/"
 all_results = listdir(mypath)
@@ -29,10 +29,26 @@ def get_pathways(condition: str) -> List[str]:
     return []
 
 
-# METHOD = "CUSTOM"
-METHOD = "DIAMOND"
-new_files = [x for x in all_results if METHOD in x]
-# new_files = [x for x in all_results if "DIAMOND" in x]
+new_files = [
+    "HPRD_ORIGINAL_CUSTOM.csv",
+    "HPRD_REWIRED_CUSTOM.csv",
+    "HPRD_ORIGINAL_DIAMOND.csv",
+    "HPRD_REWIRED_DIAMOND.csv",
+    "HPRD_UNIFORM_DIAMOND.csv",
+    "HPRD_UNIFORM_CUSTOM.csv",
+    "HPRD_EXPECTED_DEGREE_CUSTOM.csv",
+    "HPRD_EXPECTED_DEGREE_DIAMOND.csv",
+]
+new_files += [
+    "CUSTOM_ORIGINAL_CUSTOM.csv",
+    "CUSTOM_ORIGINAL_DIAMOND.csv",
+    "CUSTOM_REWIRED_CUSTOM.csv",
+    "CUSTOM_REWIRED_DIAMOND.csv",
+    "CUSTOM_UNIFORM_CUSTOM.csv",
+    "CUSTOM_UNIFORM_DIAMOND.csv",
+    "CUSTOM_EXPECTED_DEGREE_CUSTOM.csv",
+    "CUSTOM_EXPECTED_DEGREE_DIAMOND.csv",
+]
 
 print(new_files)
 for i in range(len(new_files)):
@@ -42,27 +58,21 @@ for i in range(len(new_files)):
         else:
             temp = pd.read_csv(mypath + new_files[i])
             results = pd.concat([results, temp], axis=0, ignore_index=True)
-results = results.replace(
-    {
-        "network_generator_name": {
-            "REWIRED": "EXPECTED_DEGREE",
-            "RDPN": "REWIRED",
-        },
-    },
-)
 
+            COND = "GSE3790"
+results = results[results.condition_name == COND].reset_index(drop=True)
+results = results.replace({"algorithm_name": {"CUSTOM": "QA", "DIAMOND": "DIA"}})
 results = results.replace(
     {
         "condition_name": {
-            "GSE112680": "ALS",
-            "GSE30219": "LC",
-            "GSE75214": "UC",
-            "GSE75214_cd": "CD",
-            "GSE3790": "HD",
+            "GSE112680": "ALS",  # 198 seeds
+            "GSE30219": "LC",  # 698
+            "GSE75214": "UC",  # 1881
+            "GSE75214_cd": "CD",  # 446
+            "GSE3790": "HD",  # 634
         },
     },
 )
-print(results)
 
 all_genes = list(results.result_genes)
 genes = []
@@ -89,57 +99,6 @@ for line in out:
     except KeyError:
         print("{0} was not mapped to any gene name".format(line["query"]))
         mapping[line["query"]] = line["query"]
-
-kegg_pval = []
-
-for i in results.index:
-    if results.neg_log_gsea_p_value[i] == -1:
-        gs = str(results.result_genes[i])
-        gs = gs.split(",")
-        gs = [mapping[x] for x in gs]
-        # breakpoint()
-
-        res = False
-        while res == False:
-            # if True:
-            try:
-                enr = gseapy.enrichr(
-                    gene_list=gs,
-                    # description="pathway",
-                    gene_sets="KEGG_2016",
-                    outdir="out",
-                )
-                res = True
-            except Exception as e:
-                print(e)
-                # print(gs)
-                # breakpoint()
-
-                # print("sleeping")
-                # time.sleep(1)
-                # kegg_pval.append(np.nan)
-        # if not res:
-        # continue
-        full_results = enr.results
-        terms = list(full_results.Term)
-        terms = [x.split(" ")[-1] for x in terms]
-        p_values = []
-        pathways = get_pathways(results.condition_name[i])
-        for j in range(len(terms)):
-            if terms[j] in pathways:
-                p_values.append(-np.log10(full_results["Adjusted P-value"][j]))
-
-        kegg_pval.append(np.mean(p_values))
-
-        print(i)
-
-next = 0
-for i in results.index:
-    if results.neg_log_gsea_p_value[i] == -1:
-        num = kegg_pval[next]
-        if np.isnan(num):
-            num = 0
-        results.neg_log_gsea_p_value[i] = 0
 
 
 disgenet = pd.read_csv("data/networks/disgenet.csv")
@@ -172,39 +131,100 @@ for i in results.index:
 results["disgenet_overlap"] = overlaps
 
 print(results)
-fig, axes = plt.subplots(3, 1)
-fig.subplots_adjust(hspace=0.8, wspace=0.4)
-kv = {
-    "x": "network_generator_name",
-    "data": results,
-    "hue": "condition_name",
-    "palette": "Accent",
-}
-
-sns.boxplot(ax=axes[0], y="neg_log_gsea_p_value", **kv)
-axes[0].set_title(r"$\bf{" + "a)" + "}$" + " KEGG gene set enrichment", loc="left")
-axes[0].set(xlabel="")
-
-sns.boxplot(ax=axes[1], y="mean_mutual_information", **kv)
-axes[1].set_title(
-    r"$\bf{" + "b)" + "}$" + " Mean mutual information with the phenotype",
-    loc="left",
+sort_order = [
+    "ORIGINAL",
+    "REWIRED",
+    "EXPECTED_DEGREE",
+    "UNIFORM",
+]
+results["network_generator_name"] = pd.Categorical(
+    results["network_generator_name"],
+    categories=sort_order,
+    ordered=True,
 )
-# axes[1].legend_.remove()
-
-
-sns.boxplot(ax=axes[2], y="disgenet_overlap", **kv)
-axes[2].set_title(
-    r"$\bf{" + "c)" + "}$" + " Overlap with DisGeNET disease genes", loc="left"
+results = results.sort_values(by="network_generator_name")
+results = results.replace(
+    {
+        "network_generator_name": {
+            "ORIGINAL": "Original",
+            "REWIRED": "Rewired",
+            "UNIFORM": "Uniform",
+            "EXPECTED_DEGREE": "Expected Degree",
+        },
+    },
 )
-# axes[2].legend_.remove()
-axes[2].set(xlabel="")
+results = results.rename(
+    columns={
+        "network_generator_name": "Generator",
+        "mean_mutual_information": "Mean Mutual Information",
+        "algorithm_name": "Model",
+    },
+)
 
 
-plt.tight_layout()
-# plt.show()
-plt.savefig(f"img/basic/{METHOD}.png")
-# plt.savefig("img/basic/all.pdf")
+def plot1() -> None:
+    fig, axes = plt.subplots(1, 1)
+    past = sns.color_palette()
+    palette = {}
+    palette["QA"] = "#54B6B8"
+    palette["DIA"] = past[1]
+    kv = {
+        "x": "Generator",
+        "data": results,
+        # "hue": "condition_name",
+        "hue": "Model",
+        "palette": palette,
+    }
+
+    axes.set_title(f"Mean mutual information with phenotype for {COND}")
+    sns.boxplot(ax=axes, y="Mean Mutual Information", **kv)
+    plt.tight_layout()
+    if COND:
+        plt.savefig(f"img/basic/{COND}.png", dpi=600)
+        plt.savefig(f"img/basic/{COND}.pdf", dpi=600)
+    else:
+        plt.savefig("img/basic/ALL.png", dpi=600)
+        plt.savefig("img/basic/ALL.pdf", dpi=600)
 
 
-plt.show()
+def plot2() -> None:
+    fig, axes = plt.subplots(2, 1)
+    fig.subplots_adjust(hspace=0.8, wspace=0.4)
+    past = sns.color_palette()
+    palette = {}
+    palette["QA"] = "#54B6B8"
+    palette["DIA"] = past[1]
+    kv = {
+        "x": "Generator",
+        "data": results,
+        # "hue": "condition_name",
+        "hue": "Model",
+        "palette": palette,
+    }
+
+    sns.boxplot(ax=axes[0], y="Mean Mutual Information", **kv)
+    axes[0].set_title(
+        r"$\bf{" + "a)" + "}$" + " Mean mutual information with the phenotype",
+        loc="left",
+    )
+    axes[0].legend_.remove()
+
+    sns.boxplot(ax=axes[1], y="disgenet_overlap", **kv)
+    axes[1].set_title(
+        r"$\bf{" + "b)" + "}$" + " Overlap with DisGeNET disease genes",
+        loc="left",
+    )
+    axes[1].legend_.remove()
+    axes[1].set(xlabel="")
+
+    plt.tight_layout()
+    if COND:
+        plt.savefig(f"img/basic/{COND}--2.png", dpi=600)
+        plt.savefig(f"img/basic/{COND}--2.pdf", dpi=600)
+    else:
+        plt.savefig(f"img/basic/ALL--2.png", dpi=600)
+        plt.savefig(f"img/basic/ALL--2.pdf", dpi=600)
+
+
+plot1()
+plot2()
