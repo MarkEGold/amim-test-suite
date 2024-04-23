@@ -89,7 +89,8 @@ class CustomWrapper(AlgorithmWrapper):
         p_values : dict of str: float
             P-values for all genes (keys are gene IDs).
         indicator_matrix : pd.DataFrame
-            Indicator matrix obtained from expression data (indices are sample IDs, column names are gene IDs).
+            Indicator matrix obtained from expression data (indices are sample IDs,
+            column names are gene IDs).
         prefix : str
             Prefix to be used for temporary files and directories.
 
@@ -99,18 +100,23 @@ class CustomWrapper(AlgorithmWrapper):
             Set of genes computed by the algorithm.
         mean_degree : float
             Mean degree of the result genes.
-        """
 
-        topn = 200
+        """
+        topn = 100
         result_genes = []
         G = ggi_network
         nl = np.arange(G.number_of_nodes())
         A = nx.adjacency_matrix(G, nodelist=nl)
         node_to_gid = {}
         gid_to_node = {}
+
+        _node_to_gid = nx.get_node_attributes(ggi_network, "GeneID")
+
         for node in G.nodes():
-            node_to_gid[node] = G.nodes[node]["GeneID"]
-            gid_to_node[G.nodes[node]["GeneID"]] = node
+            gid = G.nodes[node]["GeneID"]
+            node_to_gid[node] = gid
+            gid_to_node[gid] = node
+
         seed_list = []
         missing = []
         for gid in seed_genes:
@@ -119,13 +125,13 @@ class CustomWrapper(AlgorithmWrapper):
             except:
                 missing.append(gid)
         print(f"{len(missing)} / {len(seed_genes)} missing seeds")
-        scores = qrw_score(ggi_network, seed_list, H=A, t=0.45, diag=5)
+        scores = qrw_score(ggi_network, seed_list, H=A, t=0.45, diag=None)
         train_seed_mask = seed_list_to_mask(seed_list, G.number_of_nodes())
         test_mask = (1 - train_seed_mask).astype(bool)
         scores_test = scores[test_mask]
         ind = np.argpartition(scores_test, -topn)[-topn:]
         top_N = ind[np.argsort(scores_test[ind])]
-        for i in range(topn):
-            result_genes.append(node_to_gid[top_N[i]])  # reverse order?
+        for i in reversed(range(topn)):
 
+        print(result_genes)
         return result_genes, AlgorithmWrapper.mean_degree(ggi_network, result_genes)
